@@ -132,7 +132,27 @@ export async function handleEvaluateChromeScript(args: unknown): Promise<McpTool
 
     const driver = firefox.getDriver();
 
+    // Self-contained context switch: switch to chrome, execute, restore content.
+    // Follows the same pattern as core.ts applyPreferences().
+    const treeResult = await firefox.sendBiDiCommand('browsingContext.getTree', {
+      'moz:scope': 'chrome',
+    });
+    const contexts = treeResult.contexts || [];
+    if (contexts.length === 0) {
+      return errorResponse(
+        new Error(
+          'No chrome contexts available. Ensure MOZ_REMOTE_ALLOW_SYSTEM_ACCESS=1 is set.'
+        )
+      );
+    }
+
+    const chromeContextId = contexts[0].context;
+    const originalContextId = await driver.getWindowHandle();
+
     try {
+      await driver.switchTo().window(chromeContextId);
+      await (driver as any).setContext('chrome');
+
       const result = await driver.executeScript(`return (${expression});`);
       const resultText =
         typeof result === 'string'
@@ -150,6 +170,14 @@ export async function handleEvaluateChromeScript(args: unknown): Promise<McpTool
           `Script execution failed: ${executeError instanceof Error ? executeError.message : String(executeError)}`
         )
       );
+    } finally {
+      // Always restore content context so subsequent tools work normally
+      try {
+        await (driver as any).setContext('content');
+        await driver.switchTo().window(originalContextId);
+      } catch {
+        // Ignore errors restoring context
+      }
     }
   } catch (error) {
     return errorResponse(error as Error);
