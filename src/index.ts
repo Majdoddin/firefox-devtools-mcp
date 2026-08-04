@@ -7,6 +7,8 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
+  ListResourcesRequestSchema,
+  ReadResourceRequestSchema,
   CallToolRequest,
 } from '@modelcontextprotocol/sdk/types.js';
 
@@ -17,6 +19,7 @@ import type { parseArguments } from './cli.js';
 import { FirefoxDevTools } from './firefox/index.js';
 import type { FirefoxLaunchOptions } from './firefox/types.js';
 import { buildToolset } from './tools/registry.js';
+import { listKitResources, readKitResource } from './utils/kit.js';
 import { errorResponse } from './utils/response-helpers.js';
 
 type Args = ReturnType<typeof parseArguments>;
@@ -214,17 +217,33 @@ export async function run(
     logDebug(`  Viewport: ${args.viewport.width}x${args.viewport.height}`);
   }
 
+  // The kit ships only in the moz package and is useless without privileged
+  // eval, so the resources capability is advertised only when it is really there.
+  const kitResources = allowPrivileged ? listKitResources() : [];
+  if (kitResources.length > 0) {
+    log(`Exposing ${kitResources.length} kit resources`);
+  }
+
   const server = new Server(
     {
       name: SERVER_NAME,
       version: SERVER_VERSION,
     },
     {
-      capabilities: {
-        tools: {},
-      },
+      capabilities: kitResources.length > 0 ? { tools: {}, resources: {} } : { tools: {} },
     }
   );
+
+  if (kitResources.length > 0) {
+    server.setRequestHandler(ListResourcesRequestSchema, async () => {
+      log('Listing available resources');
+      return { resources: kitResources };
+    });
+
+    server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+      return { contents: [readKitResource(request.params.uri)] };
+    });
+  }
 
   // List available tools
   server.setRequestHandler(ListToolsRequestSchema, async () => {

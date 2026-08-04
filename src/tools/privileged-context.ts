@@ -3,6 +3,7 @@
  * Requires MOZ_REMOTE_ALLOW_SYSTEM_ACCESS=1
  */
 
+import { readKitFiles } from '../utils/kit.js';
 import { successResponse, errorResponse, previewExcerpt } from '../utils/response-helpers.js';
 import { validateFunction } from '../utils/js-validation.js';
 import { remoteValueToNative } from '../utils/remote-value.js';
@@ -78,6 +79,53 @@ export const evaluatePrivilegedScriptTool = {
     required: ['function', 'context'],
   },
 };
+
+export const ensurePrivilegedKitTool = {
+  name: 'ensure_privileged_kit',
+  description:
+    'Load the bundled kit (hook, tap, hookScript, drain, describe) into a privileged (chrome) context. Idempotent: reloading keeps live hooks, taps and their undrained buffers. Payloads reach it with globalThis.__ffllm ??= Cu.getGlobalForObject(Services).__ffllm; each kit file header is that primitive manual. Requires MOZ_REMOTE_ALLOW_SYSTEM_ACCESS=1 env var. Get context ids from list_privileged_contexts.',
+  annotations: {
+    readOnlyHint: false,
+  },
+  inputSchema: {
+    type: 'object',
+    properties: {
+      context: {
+        type: 'string',
+        description: 'Privileged browsing context ID from list_privileged_contexts',
+      },
+    },
+    required: ['context'],
+  },
+};
+
+// Evaluates every kit source, shipped in as JSON, into one invisibleToDebugger
+// system-principal sandbox anchored on the shared system global so it outlives
+// the window that loaded it. The reuse branch evaluates into the existing
+// sandbox, keeping one kit per process; each file is an IIFE, so re-evaluating
+// replaces its exports in place and leaves live hooks and buffers alone.
+// The sources arrive over the wire and have no url, so filename restrictions are
+// off: the alternative is claiming a resource:// uri that resolves nowhere, or
+// omitting the name and attributing every kit stack frame to browser.xhtml.
+const KIT_LOADER = `(json) => {
+  const files = JSON.parse(json);
+  const anchor = Cu.getGlobalForObject(Services);
+  const reused = !!anchor.__ffllm;
+  const sb = reused
+    ? Cu.getGlobalForObject(anchor.__ffllm.hook)
+    : Cu.Sandbox(Cc['@mozilla.org/systemprincipal;1'].createInstance(Ci.nsIPrincipal), {
+        invisibleToDebugger: true, freshCompartment: true, sandboxName: 'ffllm-kit',
+        wantGlobalProperties: ['ChromeUtils', 'IOUtils', 'TextDecoder'] });
+  if (!reused) {
+    const T = ChromeUtils.importESModule('resource://gre/modules/Timer.sys.mjs');
+    sb.setTimeout = T.setTimeout; sb.clearTimeout = T.clearTimeout;
+  }
+  for (const f of files)
+    Cu.evalInSandbox(f.source, sb, null, 'ffllm/' + f.name, 1, false);
+  anchor.__ffllm = sb.__ffllm;
+  return JSON.stringify({ reused, loaded: files.map(f => f.name),
+                          api: Object.keys(sb.__ffllm) });
+}`;
 
 function formatContextList(contexts: any[]): string {
   if (contexts.length === 0) {
@@ -253,6 +301,53 @@ export async function handleEvaluatePrivilegedScript(args: unknown): Promise<Mcp
   }
 }
 
+export async function handleEnsurePrivilegedKit(args: unknown): Promise<McpToolResponse> {
+  try {
+    const { context } = args as { context: string };
+
+    if (!context || typeof context !== 'string') {
+      throw new Error('context parameter is required and must be a string');
+    }
+
+    const { getFirefox } = await import('../index.js');
+    const firefox = await getFirefox();
+
+    await assertPrivilegedContext(firefox, context);
+
+    const files = readKitFiles();
+    if (files.length === 0) {
+      throw new Error('Kit not found: no kit directory next to the server bundle.');
+    }
+
+    const result = await firefox.sendBiDiCommand('script.callFunction', {
+      functionDeclaration: KIT_LOADER,
+      awaitPromise: true,
+      arguments: [{ type: 'string', value: JSON.stringify(files) }],
+      target: { context },
+    });
+
+    if (result.type === EvaluateResultType.Success) {
+      // The loader already returns a JSON string
+      const json = String(remoteValueToNative(result.result));
+      return successResponse('Kit loaded into chrome context:\n```json\n' + json + '\n```');
+    } else if (result.type === EvaluateResultType.Exception) {
+      const exceptionDetails = result.exceptionDetails;
+      return errorResponse(
+        new Error(
+          `Kit load failed: ${exceptionDetails.text}\n\n` +
+            '```json\n' +
+            JSON.stringify(remoteValueToNative(exceptionDetails.exception), null, 2) +
+            '\n```'
+        )
+      );
+    } else {
+      return errorResponse(`Unexpected script.callFunction result type: ${result.type}`);
+    }
+  } catch (error) {
+    return errorResponse(error as Error);
+  }
+}
+
 export const module = defineModule({
   name: 'privileged',
   description: 'Access privileged ("chrome") contexts and list extensions.',
@@ -261,6 +356,7 @@ export const module = defineModule({
     [listPrivilegedContextsTool, handleListPrivilegedContexts],
     [selectPrivilegedContextTool, handleSelectPrivilegedContext],
     [evaluatePrivilegedScriptTool, handleEvaluatePrivilegedScript],
+    [ensurePrivilegedKitTool, handleEnsurePrivilegedKit],
     [listExtensionsTool, handleListExtensions],
   ],
 });
