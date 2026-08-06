@@ -159,9 +159,13 @@
   // leaves the registry so a throw is still attributable, and the flush runs
   // after: past this point the entry is unreachable, so an unwritten tail would
   // be destroyed rather than merely late.
+  //
+  // Remove-all unwinds newest-first: an undo restores what its install saved,
+  // so hooks stacked on one target only come apart in reverse install order —
+  // insertion order would resurrect the inner wrapper after restoring stock.
   const remove = async (reg, id) => {
     const removed = [];
-    for (const k of id === undefined ? Object.keys(reg) : [id]) {
+    for (const k of id === undefined ? Object.keys(reg).reverse() : [id]) {
       const e = reg[k];
       if (!e) continue;
       if (e.uninstall) {

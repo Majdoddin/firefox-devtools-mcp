@@ -19,7 +19,8 @@
 //              Return nothing and the hook is not undoable — reports say so.
 //     opts     { sample: 1, max: 200, out: null }   see capture.js
 //
-//   await unhook(id) -> JSON    unhook() with no id removes every hook
+//   await unhook(id) -> JSON    unhook() with no id removes every hook,
+//     newest-first, so a stack on one target comes apart cleanly
 //
 //   Wrong-shaped arguments (non-string id, non-function install, unknown opts
 //   keys) throw synchronously and kill the payload; a failing installer still
@@ -34,10 +35,11 @@
 // Replacing a JS property is the fallback for the frontend, where no extension
 // point was ever designed — which is most of it.
 //
-// Two caveats stay the agent's to track. Unwrapping is LIFO-sensitive, so
-// restoring an original blindly clobbers whoever wrapped after you; and any
-// reference taken before the patch keeps calling the old function. Restarting
-// Firefox is the backstop.
+// Two caveats stay the agent's to track. An undo restores what its install
+// saved, so hooks stacked on one target must come off newest-first — bare
+// unhook() does that on its own, but unhook(id) on a buried hook clobbers
+// whoever wrapped after it. And any reference taken before the patch keeps
+// calling the old function. Restarting Firefox is the backstop.
 //
 // Record every call, pass it through unchanged — a hook doing tap's job:
 //
