@@ -83,7 +83,7 @@ export const evaluatePrivilegedScriptTool = {
 export const ensurePrivilegedKitTool = {
   name: 'ensure_privileged_kit',
   description:
-    'Load the bundled kit (hook, tap, hookScript, drain, describe) into a privileged (chrome) context. Idempotent: reloading keeps live hooks, taps and their undrained buffers. Payloads reach it with globalThis.__ffllm ??= Cu.getGlobalForObject(Services).__ffllm; each kit file header is that primitive manual. Requires MOZ_REMOTE_ALLOW_SYSTEM_ACCESS=1 env var. Get context ids from list_privileged_contexts.',
+    'Load the bundled kit (hook, tap, hookScript, drain, describe) into a privileged (chrome) context. Calling it again resets the kit code to the shipped sources and keeps live hooks, taps and their undrained buffers. Payloads reach it with globalThis.__ffllm ??= Cu.getGlobalForObject(Services).__ffllm; each kit file header is that primitive manual. Requires MOZ_REMOTE_ALLOW_SYSTEM_ACCESS=1 env var. Get context ids from list_privileged_contexts.',
   annotations: {
     readOnlyHint: false,
   },
