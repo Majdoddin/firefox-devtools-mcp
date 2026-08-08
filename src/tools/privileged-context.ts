@@ -47,10 +47,14 @@ export const selectPrivilegedContextTool = {
   },
 };
 
+// The limits in the description re-verify per release: a >16 KB
+// functionDeclaration must be rejected, a 9 s busy script must hit the BiDi
+// timeout, and a kit guard's TypeError must arrive with name intact but
+// failing instanceof TypeError.
 export const evaluatePrivilegedScriptTool = {
   name: 'evaluate_privileged_script',
   description:
-    'Execute JS function in a privileged (chrome) browsing context. Requires MOZ_REMOTE_ALLOW_SYSTEM_ACCESS=1 env var. Get context ids from list_privileged_contexts.',
+    'Execute JS function in a privileged (chrome) browsing context. Requires MOZ_REMOTE_ALLOW_SYSTEM_ACCESS=1 env var. Get context ids from list_privileged_contexts. Channel limits (measured on Firefox Nightly 155): payloads over ~16 KB are rejected; a script has ~8 s of real time before the 10 s BiDi timeout kills the call; only JSON crosses, and an error thrown in another realm (the kit sandbox, for one) fails instanceof — match it by e.name.',
   annotations: {
     readOnlyHint: false,
   },
