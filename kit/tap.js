@@ -2,7 +2,7 @@
 //
 // Passive observation of an observer-service topic. Installing is addObserver
 // and removing is removeObserver; everything between them — reducing at
-// capture, the buffer or the file sink, drain — is capture.js.
+// capture, the buffer or the sink, drain — is capture.js.
 //
 // Because the reduction runs inside the notification, the agent has to know the
 // subject's shape before it has ever seen one. That is what `sample` is for:
@@ -19,7 +19,7 @@
 //
 //   await tap(topic, opts) -> JSON { id, topic, replaced, prior? }
 //     opts { extract: (subject, data, topic) => any   default: ctor + toString
-//            sample, max, out   see capture.js
+//            sample, max, out, flushMs   see capture.js
 //            id }               defaults to the topic
 //
 //   await untap(id) -> JSON    untap() with no id removes every tap
@@ -75,14 +75,15 @@
     }
     if (opts === null || typeof opts !== 'object' || Array.isArray(opts)) {
       throw new TypeError(
-        'tap: opts must be a plain object { extract, sample, max, out, id }');
+        'tap: opts must be a plain object { extract, sample, max, out, flushMs, id }');
     }
     for (const k of Object.keys(opts)) {
-      if (!['extract', 'sample', 'max', 'out', 'id'].includes(k)) {
+      if (!['extract', 'sample', 'max', 'out', 'flushMs', 'id'].includes(k)) {
         throw new TypeError(
-          `tap: unknown opts key "${k}" — opts is { extract, sample, max, out, id }`);
+          `tap: unknown opts key "${k}" — opts is { extract, sample, max, out, flushMs, id }`);
       }
     }
+    S._capture.checkOpts(opts);
     if (opts.extract !== undefined && typeof opts.extract !== 'function') {
       throw new TypeError(
         'tap: extract must be a function (subject, data, topic) => any');

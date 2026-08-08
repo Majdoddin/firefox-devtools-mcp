@@ -17,7 +17,7 @@
 //              rec(value, subject) records one event and never throws; subject,
 //              if given, is what `sample` inspects.
 //              Return nothing and the hook is not undoable — reports say so.
-//     opts     { sample: 1, max: 200, out: null }   see capture.js
+//     opts     { sample: 1, max: 200, out: null, flushMs: 5000 }   see capture.js
 //
 //   await unhook(id) -> JSON    unhook() with no id removes every hook,
 //     newest-first, so a stack on one target comes apart cleanly
@@ -80,14 +80,15 @@
       throw new TypeError('hook: install must be a function (rec) => uninstall');
     }
     if (opts === null || typeof opts !== 'object' || Array.isArray(opts)) {
-      throw new TypeError('hook: opts must be a plain object { sample, max, out }');
+      throw new TypeError('hook: opts must be a plain object { sample, max, out, flushMs }');
     }
     for (const k of Object.keys(opts)) {
-      if (!['sample', 'max', 'out'].includes(k)) {
+      if (!['sample', 'max', 'out', 'flushMs'].includes(k)) {
         throw new TypeError(
-          `hook: unknown opts key "${k}" — opts is { sample, max, out }`);
+          `hook: unknown opts key "${k}" — opts is { sample, max, out, flushMs }`);
       }
     }
+    S._capture.checkOpts(opts);
     return (async () => {
       if (S.taps && id in S.taps) {
         return JSON.stringify({ id, installed: false, error: 'id already names a tap' });

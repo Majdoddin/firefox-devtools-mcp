@@ -28,6 +28,9 @@
   }
   for (const f of files)
     Cu.evalInSandbox(f.source, sb, null, 'ffllm/' + f.name, 1, false);
+  // Retained so the parent can re-ship the kit into child processes without
+  // the sources ever crossing the agent channel again.
+  sb.__ffllm._sources = files;
   anchor.__ffllm = sb.__ffllm;
   return JSON.stringify({ reused, loaded: files.map(f => f.name),
                           api: Object.keys(sb.__ffllm) });

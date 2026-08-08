@@ -8,7 +8,7 @@
 // agent gets to keep is decided there and nowhere later.
 //
 // Everything downstream of that decision is the same for the two, so it lives
-// here: the ring or the file sink, the counters, drain, and the uninstall.
+// here: the ring or the sink, the counters, drain, and the uninstall.
 // tap.js and hook.js differ only in how they attach.
 //
 // A channel holds the uninstall because the agent cannot. Only serialized
@@ -23,6 +23,13 @@
 //     Event times are ms since the channel was installed.
 //
 // Whether `out` is set changes what the buffer is for, and so what drain does.
+// `out` names the sink: a string is a file path (JSONL appends), a function is
+// called with each batch, and { write, tail?, label? } is the general form —
+// write(batch) may return a promise, tail(n) is what drain reads back, label
+// is what reports print as `out`. A sink without tail only forwards (a message
+// sink: the record lives where the batches land), so drain on it flushes and
+// accounts but returns no events, and the report says why. `flushMs` (default
+// 5000) bounds how long a partial batch may wait for the next event.
 //
 // Without it the buffer is the only copy: `max` is a ring, the oldest events
 // are dropped once it fills, and drain is the sole exit — FIFO, returning and
@@ -38,36 +45,38 @@
 // it, `redeliver: true` prepends it to the answer (original `t` stamps, so an
 // accidental double replay is detectable), and a drain that comes back empty
 // while a copy exists says so with `replayable`. Recovery is one batch deep.
-// A sink channel needs none of this — the file is the record.
+// A sink channel needs none of this — the sink's destination is the record.
 //
-// With it the file is the record and the only thing held in memory is what has
-// not been written yet; `max` is just a write batch size. drain flushes that,
-// then reads the last `limit` records back out of the file — so what it returns
-// is the tail of the file itself rather than of some buffer, and `limit` is not
-// silently capped by however much happened to be pending at that instant. It
-// reads a bounded range from the end, so draining a channel that has been
-// running all day costs the same as draining one installed a second ago.
+// With it the destination is the record and the only thing held in memory is
+// what has not been written yet; `max` is just a write batch size. drain
+// flushes that, then reads the last `limit` records back through the sink's
+// tail — so what it returns is the tail of the record itself rather than of
+// some buffer, and `limit` is not silently capped by however much happened to
+// be pending at that instant. The file sink's tail reads a bounded range from
+// the end, so draining a channel that has been running all day costs the same
+// as draining one installed a second ago.
 //
 // So with a sink `limit: 0` returns no events at all — flush and accounting
-// only, and `clear` means nothing because reading the file consumes nothing.
-// Pulling an unbounded file back through the channel is the exact cost the sink
-// exists to avoid, so asking for a tail should be deliberate. Since nothing is
-// dropped the reports carry `flushed` where they carried `dropped`; a counter
-// that changes meaning from "you lost data" to "all is well" while still
-// reading 0 is worse than no counter.
+// only, and `clear` means nothing because reading back consumes nothing.
+// Pulling an unbounded record back through the channel is the exact cost the
+// sink exists to avoid, so asking for a tail should be deliberate. Since
+// nothing is dropped the reports carry `flushed` where they carried `dropped`;
+// a counter that changes meaning from "you lost data" to "all is well" while
+// still reading 0 is worse than no counter.
 //
-// Writes are appends dispatched from a sync callback that cannot await them.
-// IOUtils keeps same-path writes ordered on its own, so the per-channel promise
-// chain is not for ordering — it is so drain and remove can await every queued
-// write and report a file that is actually complete. A partial batch would
-// otherwise sit in memory until the next event or drain; a short timer flushes
-// it, because the crash that loses the unwritten tail is the expected failure
-// mode of a tool whose job is patching browser internals.
+// Writes are dispatched from a sync callback that cannot await them. IOUtils
+// keeps same-path writes ordered on its own, so for the file sink the
+// per-channel promise chain is not for ordering — it is so drain and remove
+// can await every queued write and report a record that is actually complete;
+// a custom sink gets its ordering from the same chain. A partial batch would
+// otherwise sit in memory until the next event or drain; the flushMs timer
+// flushes it, because the crash that loses the unwritten tail is the expected
+// failure mode of a tool whose job is patching browser internals.
 (() => {
   const S = (globalThis.__ffllm ??= { installedAt: Date.now() });
 
   // Empties the buffer into the sink. Returns the channel's write chain, so
-  // callers that can wait know when the file caught up; a failed write is
+  // callers that can wait know when the sink caught up; a failed write is
   // recorded on the entry rather than left to reject somewhere unrelated, and
   // the chain keeps running so one bad write does not silence the rest.
   const flush = (entry) => {
@@ -75,9 +84,8 @@
     if (!entry.out || !entry.pend.length) return entry.pending;
     const batch = entry.pend.splice(0, entry.pend.length);
     entry.flushed += batch.length;
-    const text = batch.map((e) => JSON.stringify(e)).join('\n') + '\n';
     entry.pending = entry.pending
-      .then(() => IOUtils.writeUTF8(entry.out, text, { mode: 'appendOrCreate' }))
+      .then(() => sinkOf(entry).write(batch))
       .catch((e) => { entry.writeError = String(e); });
     return entry.pending;
   };
@@ -103,10 +111,25 @@
       .map((l) => { try { return JSON.parse(l); } catch (e) { return { unparsed: l }; } });
   };
 
+  const fileSink = (path) => ({
+    label: path,
+    write: (batch) => IOUtils.writeUTF8(path,
+      batch.map((e) => JSON.stringify(e)).join('\n') + '\n', { mode: 'appendOrCreate' }),
+    tail: (n) => tailOfFile(path, n),
+  });
+
+  // Built lazily from `out` and cached, so entries opened by an older
+  // capture.js pick up a sink on their next flush.
+  const sinkOf = (entry) =>
+    entry.sink ??= typeof entry.out === 'string' ? fileSink(entry.out)
+      : typeof entry.out === 'function' ? { label: entry.out.name || 'sink', write: entry.out }
+      : { label: 'sink', ...entry.out };
+
   const open = (opts = {}) => ({
     max: opts.max ?? 200,
     sample: opts.sample ?? 1,
     out: opts.out ?? null,
+    flushMs: opts.flushMs ?? 5000,
     installedAt: Date.now(),
     count: 0, dropped: 0, flushed: 0,
     buf: [], last: [], pend: [], pending: Promise.resolve(), timer: null,
@@ -134,7 +157,8 @@
       entry.pend.push(ev);
       if (entry.pend.length >= entry.max) flush(entry);
       else if (!entry.timer) {
-        entry.timer = setTimeout(() => { entry.timer = null; flush(entry); }, 5000);
+        entry.timer = setTimeout(() => { entry.timer = null; flush(entry); },
+          entry.flushMs ?? 5000);
       }
     } else {
       entry.buf.push(ev);
@@ -147,7 +171,7 @@
     if (e.topic) r.topic = e.topic;
     r.count = e.count;
     Object.assign(r, extra);
-    if (e.out) { r.out = e.out; r.flushed = e.flushed; r.unwritten = e.pend.length; }
+    if (e.out) { r.out = sinkOf(e).label; r.flushed = e.flushed; r.unwritten = e.pend.length; }
     else { r.dropped = e.dropped; r.remaining = e.buf.length; }
     if (e.writeError) r.writeError = e.writeError;
     if (e.recordError) r.recordError = e.recordError;
@@ -193,7 +217,8 @@
     let events;
     if (e.out) {
       await flush(e);
-      events = o.limit > 0 ? await tailOfFile(e.out, o.limit) : [];
+      const sink = sinkOf(e);
+      events = o.limit > 0 && sink.tail ? await sink.tail(o.limit) : [];
     } else {
       e.last ??= []; // entries opened by an older capture.js
       const n = o.limit > 0 ? Math.min(o.limit, e.buf.length) : e.buf.length;
@@ -207,14 +232,33 @@
     // job is to say the ring wrapped and the agent is holding an incomplete
     // record. It counts losses since the previous drain, not since install.
     const r = report(id, e, { returned: events.length });
+    if (e.out && o.limit > 0 && !sinkOf(e).tail) {
+      r.note = 'sink has no tail; the record lives where the batches land';
+    }
     if (!e.out && !events.length && e.last.length) r.replayable = e.last.length;
     if (o.clear && !e.out) e.dropped = 0;
     r.events = events;
     return JSON.stringify(r);
   };
 
+  // Sink-facing opts are validated here, shared by hook and tap so a wrong
+  // shape dies synchronously in the caller's frame, not inside a dropped
+  // promise.
+  const checkOpts = (opts) => {
+    const o = opts.out;
+    if (o !== undefined && o !== null && typeof o !== 'string' && typeof o !== 'function'
+        && !(typeof o === 'object' && typeof o.write === 'function')) {
+      throw new TypeError(
+        'out must be a file path, a batch function, or { write, tail?, label? }');
+    }
+    if (opts.flushMs !== undefined
+        && !(typeof opts.flushMs === 'number' && opts.flushMs > 0)) {
+      throw new TypeError('flushMs must be a positive number of milliseconds');
+    }
+  };
+
   // Reached through S at call time, never captured in an installed closure, so
   // reloading this file fixes capture for taps and hooks already running.
-  S._capture = { open, record, flush, report, remove };
+  S._capture = { open, record, flush, report, remove, checkOpts };
   S.drain = drain;
 })();
