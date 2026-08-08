@@ -17,6 +17,11 @@
 //           as a module; a dotted path like "gBrowser.selectedTab" resolves first
 //           against the kit realm (Services, __ffllm), then the most recent
 //           browser window (gBrowser, window, document).
+//           DevTools modules are not ESM — reach them through their loader:
+//           importESModule("resource://devtools/shared/loader/Loader.sys.mjs")
+//             .require("devtools/client/framework/devtools").gDevTools
+//           (devtools-browser exports gDevToolsBrowser, the wrong module;
+//           validated Nightly 155).
 //   opts    { proto: true,   walk the prototype chain, not just own props
 //             values: true,  preview data props and invoke getters
 //             deep: false,   include Object.prototype boilerplate
