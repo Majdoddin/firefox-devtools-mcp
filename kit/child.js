@@ -1,4 +1,4 @@
-// ff-llm primitive: hookChild.
+// ff-llm primitive: hookChild — carry a hook into content processes.
 //
 // hook, one process over. hook installs a wrapper in the parent realm; the
 // behaviour worth watching often lives in a content process, where the agent's

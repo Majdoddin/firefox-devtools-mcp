@@ -1,4 +1,4 @@
-// ff-llm primitive: introspect.
+// ff-llm primitive: introspect — describe any live object, module, or path inside Firefox.
 //
 // Runs in Firefox's parent process, in the kit's own sandbox — an
 // invisibleToDebugger system-principal sandbox no Debugger can enumerate, so the

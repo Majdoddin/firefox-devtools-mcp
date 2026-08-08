@@ -1,4 +1,4 @@
-// ff-llm primitive: hook.
+// ff-llm primitive: hook — stand in any Firefox function's path and capture its calls.
 //
 // The active counterpart of tap. A tap watches a seam; a hook stands in it —
 // the wrapper sees the arguments and may change them, change the return value,

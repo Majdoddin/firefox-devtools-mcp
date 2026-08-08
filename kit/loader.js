@@ -1,4 +1,4 @@
-// ff-llm loader: creates the kit sandbox and evaluates the kit sources into it.
+// ff-llm loader: how the kit enters Firefox — creates the sandbox and evaluates the kit sources.
 //
 // Not a primitive: this whole file is the functionDeclaration of the BiDi
 // script.callFunction that ensure_privileged_kit sends, with the other kit

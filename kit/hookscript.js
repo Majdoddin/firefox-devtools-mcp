@@ -1,4 +1,4 @@
-// ff-llm primitive: hookScript.
+// ff-llm primitive: hookScript — break on a line of Firefox's own code and record each hit.
 //
 // A hook whose seam is a source location instead of a property: any position
 // the engine can stop at, in any compiled chrome script, addressed by url plus

@@ -1,4 +1,4 @@
-// ff-llm capture: the half of tap and hook that does not depend on the seam.
+// ff-llm capture: rings, sinks, and drain — where hook and tap events land and come back.
 //
 // Both primitives face the same problem once they are attached. Something
 // happened, they are holding a live XPCOM object that mutates and is usually

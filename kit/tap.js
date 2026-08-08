@@ -1,4 +1,4 @@
-// ff-llm primitive: tap.
+// ff-llm primitive: tap — watch an observer topic and keep what the notifications carry.
 //
 // Passive observation of an observer-service topic. Installing is addObserver
 // and removing is removeObserver; everything between them — reducing at
