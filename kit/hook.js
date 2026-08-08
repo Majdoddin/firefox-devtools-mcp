@@ -35,6 +35,35 @@
 // Replacing a JS property is the fallback for the frontend, where no extension
 // point was ever designed — which is most of it.
 //
+// One seam is a backstop rather than a target. A well-formed call whose async
+// phase fails after the sync frame has returned travels only in a promise
+// nobody holds — silently, since agents cannot read the Browser Console.
+// PromiseDebugging, a bare global in chrome realms, reports exactly those:
+//
+//   hook('rejections', (rec) => {
+//     const obs = {
+//       onLeftUncaught(p) {
+//         let reason = '[unreadable]';
+//         try { reason = String(PromiseDebugging.getState(p).reason); }
+//         catch (e) {}
+//         rec({ kind: 'left', id: PromiseDebugging.getPromiseID(p), reason }, p);
+//         return false;
+//       },
+//       onConsumed(p) {
+//         rec({ kind: 'consumed', id: PromiseDebugging.getPromiseID(p) });
+//       },
+//     };
+//     PromiseDebugging.addUncaughtRejectionObserver(obs);
+//     return () => PromiseDebugging.removeUncaughtRejectionObserver(obs);
+//   }, { max: 200 })
+//
+// A handler attached in the same task as the rejection reports nothing — the
+// benign pattern filters itself. A later handler reports a `left`/`consumed`
+// pair with one id; only an unpaired `left` is a leak. The reason is readable
+// only inside onLeftUncaught, and delivery lands a couple of event-loop turns
+// after the fact — the next tool call is always late enough to see it.
+// Validated Nightly 155.
+//
 // Two caveats stay the agent's to track. An undo restores what its install
 // saved, so hooks stacked on one target must come off newest-first — bare
 // unhook() does that on its own, but unhook(id) on a buried hook clobbers
