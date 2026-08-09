@@ -3,7 +3,7 @@
  * Requires MOZ_REMOTE_ALLOW_SYSTEM_ACCESS=1
  */
 
-import { readKitFile, readKitFiles } from '../utils/kit.js';
+import { KIT_FILE_NAMES, readKitFile, readKitFiles } from '../utils/kit.js';
 import { successResponse, errorResponse, previewExcerpt } from '../utils/response-helpers.js';
 import { validateFunction } from '../utils/js-validation.js';
 import { remoteValueToNative } from '../utils/remote-value.js';
@@ -87,7 +87,7 @@ export const evaluatePrivilegedScriptTool = {
 export const ensurePrivilegedKitTool = {
   name: 'ensure_privileged_kit',
   description:
-    'Load the bundled kit (hook, tap, hookScript, drain, describe) into a privileged (chrome) context. Calling it again resets the kit code to the shipped sources and keeps live hooks, taps and their undrained buffers. Payloads reach it with globalThis.__ffllm ??= Cu.getGlobalForObject(Services).__ffllm; each kit file header is that primitive manual. Requires MOZ_REMOTE_ALLOW_SYSTEM_ACCESS=1 env var. Get context ids from list_privileged_contexts.',
+    'Load the bundled kit (hook, tap, hookScript, drain, describe) into a privileged (chrome) context. Calling it again resets the kit code to the shipped sources and keeps live hooks, taps and their undrained buffers. Payloads reach it with globalThis.__ffllm ??= Cu.getGlobalForObject(Services).__ffllm; each kit file header is that primitive manual; read_kit_file returns each file. Requires MOZ_REMOTE_ALLOW_SYSTEM_ACCESS=1 env var. Get context ids from list_privileged_contexts.',
   annotations: {
     readOnlyHint: false,
   },
@@ -100,6 +100,28 @@ export const ensurePrivilegedKitTool = {
       },
     },
     required: ['context'],
+  },
+};
+
+// Serves the manuals to clients whose harness strips the MCP resource tools
+// (Claude Code background subagents since v2.1.198); same bytes as kit://.
+export const readKitFileTool = {
+  name: 'read_kit_file',
+  description:
+    'Read a kit source file, header manual first: the same content ensure_privileged_kit installs and kit:// serves. Works before any install and where MCP resources are not exposed.',
+  annotations: {
+    readOnlyHint: true,
+  },
+  inputSchema: {
+    type: 'object',
+    properties: {
+      name: {
+        type: 'string',
+        enum: KIT_FILE_NAMES,
+        description: 'Kit file name',
+      },
+    },
+    required: ['name'],
   },
 };
 
@@ -329,6 +351,18 @@ export async function handleEnsurePrivilegedKit(args: unknown): Promise<McpToolR
   }
 }
 
+export async function handleReadKitFile(args: unknown): Promise<McpToolResponse> {
+  try {
+    const { name } = args as { name: string };
+    if (!name || typeof name !== 'string') {
+      throw new Error('name parameter is required and must be a string');
+    }
+    return successResponse(readKitFile(name));
+  } catch (error) {
+    return errorResponse(error as Error);
+  }
+}
+
 export const module = defineModule({
   name: 'privileged',
   description: 'Access privileged ("chrome") contexts and list extensions.',
@@ -338,6 +372,7 @@ export const module = defineModule({
     [selectPrivilegedContextTool, handleSelectPrivilegedContext],
     [evaluatePrivilegedScriptTool, handleEvaluatePrivilegedScript],
     [ensurePrivilegedKitTool, handleEnsurePrivilegedKit],
+    [readKitFileTool, handleReadKitFile],
     [listExtensionsTool, handleListExtensions],
   ],
 });

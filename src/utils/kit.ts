@@ -10,6 +10,18 @@ import { fileURLToPath } from 'node:url';
 
 export const KIT_URI_SCHEME = 'kit://';
 
+// The schema contract for read_kit_file: static so the tool schema stays valid
+// on a broken install; parity with the kit directory is pinned by tests.
+export const KIT_FILE_NAMES = [
+  'capture.js',
+  'child.js',
+  'hook.js',
+  'hookscript.js',
+  'introspect.js',
+  'loader.js',
+  'tap.js',
+];
+
 const KIT_MIME_TYPE = 'text/javascript';
 
 // Copied verbatim into the moz package (files entry), never built by tsup, so
