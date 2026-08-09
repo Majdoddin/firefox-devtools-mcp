@@ -12,7 +12,7 @@ import {
   CallToolRequest,
 } from '@modelcontextprotocol/sdk/types.js';
 
-import { SERVER_NAME, SERVER_VERSION } from './config/constants.js';
+import { SERVER_INSTRUCTIONS, SERVER_NAME, SERVER_VERSION } from './config/constants.js';
 import { log, logError, logDebug, setupLogFile, flushLogs } from './utils/logger.js';
 import { parsePrefs, defaultProfileDir } from './cli.js';
 import type { parseArguments } from './cli.js';
@@ -231,6 +231,7 @@ export async function run(
     },
     {
       capabilities: kitResources.length > 0 ? { tools: {}, resources: {} } : { tools: {} },
+      instructions: SERVER_INSTRUCTIONS,
     }
   );
 
