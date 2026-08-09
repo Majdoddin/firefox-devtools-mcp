@@ -40,6 +40,15 @@
 // scope chain —
 // Environment.getVariable alone sees only one environment and misses names
 // bound in enclosing blocks.
+//
+// Hazards, all measured: the function-end position is a stoppable site where
+// an implicit return would run — a function that always leaves through an
+// explicit return never reaches it, so a breakpoint armed there is valid and
+// silently dead; stats() hits staying 0 is the symptom. A const local reads
+// [unreadable] before its declaration runs (temporal dead zone) — parameters
+// read anywhere; arm a later site to see locals. Re-entry by a hook's own rec
+// is guarded (dropped, counted as selfSkips), but one hook's rec crossing
+// another hook's armed site is not: never break on the kit's own capture path.
 (() => {
   const S = (globalThis.__ffllm ??= { installedAt: Date.now() });
 

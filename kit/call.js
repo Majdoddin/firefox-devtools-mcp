@@ -26,7 +26,9 @@
 // into a process evaluate in one sandbox, minted on first use — stash on
 // globalThis in this call, query it in the next, exactly as the parent realm
 // carries state between evals. Keep an undo beside anything you install there;
-// evidence that accrues over time belongs to hookChild, not to a stash.
+// evidence that accrues over time belongs to hookChild, not to a stash. A
+// process that dies takes its scope and stashes with it — re-plant on the next
+// call, or use hookChild targets: 'all' when survival across churn matters.
 //
 // A snapshot with a deadline: the call reaches processes alive at dispatch —
 // nothing re-arms for ones spawned later, and an unknown pid throws, naming

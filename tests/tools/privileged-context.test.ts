@@ -6,7 +6,7 @@ import {
   readKitFileTool,
   handleReadKitFile,
 } from '../../src/tools/privileged-context.js';
-import { listKitFiles, readKitFile } from '../../src/utils/kit.js';
+import { listKitDocs, listKitFiles, readKitFile } from '../../src/utils/kit.js';
 
 // Mock the index module (used by handler tests)
 const mockGetFirefox = vi.hoisted(() => vi.fn());
@@ -75,11 +75,12 @@ describe('Privileged Context Tool Definitions', () => {
       expect(readKitFileTool.annotations.readOnlyHint).toBe(true);
     });
 
-    it('should require name and enumerate exactly the shipped kit files', () => {
+    it('should require name and enumerate the shipped sources plus recipe docs', () => {
       const { properties, required } = readKitFileTool.inputSchema;
       expect(required).toContain('name');
-      expect(properties?.name.enum).toEqual(listKitFiles());
+      expect(properties?.name.enum).toEqual([...listKitFiles(), ...listKitDocs()]);
       expect(properties?.name.enum).toContain('loader.js');
+      expect(properties?.name.enum).toContain('recipe-rejection-observer.md');
     });
   });
 });

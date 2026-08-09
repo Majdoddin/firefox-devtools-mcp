@@ -23,7 +23,12 @@ export const KIT_FILE_NAMES = [
   'tap.js',
 ];
 
-const KIT_MIME_TYPE = 'text/javascript';
+// Prose recipes beside the sources: served by read_kit_file and kit://, never
+// shipped to the loader, never evaluated.
+export const KIT_DOC_NAMES = ['recipe-rejection-observer.md'];
+
+const kitMimeType = (name: string): string =>
+  name.endsWith('.md') ? 'text/markdown' : 'text/javascript';
 
 // Copied verbatim into the moz package (files entry), never built by tsup, so
 // it sits next to the bundle; the cwd candidate covers running from source.
@@ -47,11 +52,21 @@ export function listKitFiles(): string[] {
     .sort();
 }
 
+export function listKitDocs(): string[] {
+  const dir = resolveKitDir();
+  if (!dir) {
+    return [];
+  }
+  return readdirSync(dir)
+    .filter((name) => name.endsWith('.md'))
+    .sort();
+}
+
 // Membership in the listing is also what keeps a uri from reaching outside the
 // kit directory.
 export function readKitFile(name: string): string {
   const dir = resolveKitDir();
-  if (!dir || !listKitFiles().includes(name)) {
+  if (!dir || !(listKitFiles().includes(name) || listKitDocs().includes(name))) {
     throw new Error(`Unknown kit resource: ${name}`);
   }
   return readFileSync(resolve(dir, name), 'utf-8');
@@ -69,14 +84,16 @@ export function listKitResources(): Array<{
   description: string;
   mimeType: string;
 }> {
-  return listKitFiles().map((name) => {
+  return [...listKitFiles(), ...listKitDocs()].map((name) => {
     // Each kit file opens with a one-line statement of what it is
-    const firstLine = (readKitFile(name).split('\n', 1)[0] ?? '').replace(/^\/\/\s*/, '').trim();
+    const firstLine = (readKitFile(name).split('\n', 1)[0] ?? '')
+      .replace(/^(\/\/|#)\s*/, '')
+      .trim();
     return {
       uri: KIT_URI_SCHEME + name,
       name,
       description: firstLine || name,
-      mimeType: KIT_MIME_TYPE,
+      mimeType: kitMimeType(name),
     };
   });
 }
@@ -85,9 +102,10 @@ export function readKitResource(uri: string): { uri: string; mimeType: string; t
   if (!uri.startsWith(KIT_URI_SCHEME)) {
     throw new Error(`Unknown resource uri: ${uri}`);
   }
+  const name = uri.slice(KIT_URI_SCHEME.length);
   return {
     uri,
-    mimeType: KIT_MIME_TYPE,
-    text: readKitFile(uri.slice(KIT_URI_SCHEME.length)),
+    mimeType: kitMimeType(name),
+    text: readKitFile(name),
   };
 }

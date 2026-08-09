@@ -3,7 +3,7 @@
  * Requires MOZ_REMOTE_ALLOW_SYSTEM_ACCESS=1
  */
 
-import { KIT_FILE_NAMES, readKitFile, readKitFiles } from '../utils/kit.js';
+import { KIT_DOC_NAMES, KIT_FILE_NAMES, readKitFile, readKitFiles } from '../utils/kit.js';
 import { successResponse, errorResponse, previewExcerpt } from '../utils/response-helpers.js';
 import { validateFunction } from '../utils/js-validation.js';
 import { remoteValueToNative } from '../utils/remote-value.js';
@@ -108,7 +108,7 @@ export const ensurePrivilegedKitTool = {
 export const readKitFileTool = {
   name: 'read_kit_file',
   description:
-    'Read a kit source file, header manual first: the same content ensure_privileged_kit installs and kit:// serves. Works before any install and where MCP resources are not exposed.',
+    'Read a kit source file (header manual first) or a recipe-*.md usage recipe: the same bytes kit:// serves; the sources are what ensure_privileged_kit installs. Works before any install and where MCP resources are not exposed.',
   annotations: {
     readOnlyHint: true,
   },
@@ -117,8 +117,8 @@ export const readKitFileTool = {
     properties: {
       name: {
         type: 'string',
-        enum: KIT_FILE_NAMES,
-        description: 'Kit file name',
+        enum: [...KIT_FILE_NAMES, ...KIT_DOC_NAMES],
+        description: 'Kit file or recipe doc name',
       },
     },
     required: ['name'],
