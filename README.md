@@ -4,11 +4,10 @@ This fork adds a development kit to [Mozilla's Firefox DevTools MCP](https://git
 discover, introspect and hot-patch a **running** Firefox, chrome and content
 processes alike. No rebuild, no restart, no getting back to the bug.
 
-Already showcased with getting agents to fix 7 Bugzilla bugs, each within ~45 minutes. Some bugs open since 2015, one of the patches has reached v.155 release notes!
+Showcased by agents fixing 7 Bugzilla bugs, each within ~45 minutes. Some bugs open since 2015, one of the patches has reached v.155 release notes!
 
-Use it to fix a firefox Bug, to add a custom feature, or even to create an firefox driver tailored to your production needs to replace this MCP.
-To try it, give your agent a task that needs the insides of the browser it is
-driving — "make Find's Highlight All keep up with content the page adds while I
+Use it to fix a Firefox bug, to add a custom feature, or even to create a Firefox driver tailored to your production needs to replace this MCP.
+Just give your agent a task about Firefox — "make Find's Highlight All keep up with content the page adds while I
 scroll", or "trace what Firefox does when I open a new tab and show me what
 each notification carries". It discovers the seam, patches the live browser,
 and you test the result in the window in front of you. For real patch work,
@@ -29,10 +28,6 @@ any of them to the agent to study. `kit/recipe-rejection-observer.md` is a worke
 - `hookChild` — carry a hook into content processes and stream what it captures
   back to the parent.
 - `drain` — collect what the hooks and taps recorded.
-
-
-
-
 
 Submitted upstream as
 [bug 2062803](https://bugzilla.mozilla.org/show_bug.cgi?id=2062803). Until it
