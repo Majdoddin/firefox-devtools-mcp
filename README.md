@@ -1,3 +1,111 @@
+# The `__ffllm` kit
+
+This fork adds a development kit to [Mozilla's Firefox DevTools MCP](https://github.com/mozilla/firefox-devtools-mcp): privileged JavaScript primitives that let an agent
+discover, introspect and hot-patch a **running** Firefox, chrome and content
+processes alike. No rebuild, no restart, no getting back to the bug.
+
+Already showcased with getting agents to fix 7 Bugzilla bugs, each within ~45 minutes. Some bugs open since 2015, one of the patches has reached v.155 release notes!
+
+Use it to fix a firefox Bug, to add a custom feature, or even to create an firefox driver tailored to your production needs to replace this MCP.
+To try it, give your agent a task that needs the insides of the browser it is
+driving — "make Find's Highlight All keep up with content the page adds while I
+scroll", or "trace what Firefox does when I open a new tab and show me what
+each notification carries". It discovers the seam, patches the live browser,
+and you test the result in the window in front of you. For real patch work,
+pair the kit with a mozilla-central checkout: the agent authors against the
+tree and verifies live.
+
+Your agent will find the kit self-explanatory. One file per primitive, each opening with its own manual including recipes written for the agent that will use it. `read_kit_file` serves
+any of them to the agent to study. `kit/recipe-rejection-observer.md` is a worked recipe composed from the primitives.
+
+- `describe` — describe any live object, module or path inside Firefox.
+- `tap` — watch an observer topic and keep what the notifications carry.
+- `hook` — stand in any function's path: see its arguments, change them, change
+  the return value, or not call through at all.
+- `hookScript` — break on a line of Firefox's own code and record each hit,
+  reaching what wrapping cannot: private methods, closures, and a function's
+  locals mid-flight.
+- `callChild` — evaluate in a content process and get the value back.
+- `hookChild` — carry a hook into content processes and stream what it captures
+  back to the parent.
+- `drain` — collect what the hooks and taps recorded.
+
+
+
+
+
+Submitted upstream as
+[bug 2062803](https://bugzilla.mozilla.org/show_bug.cgi?id=2062803). Until it
+lands, this fork is how you run it.
+
+## Install
+
+Build from source. The published npm packages do not carry the kit, and the
+public entry point deliberately strips the privileged tools the kit needs — so
+`npx` is not a path here, including `@mozilla/firefox-devtools-mcp-moz`.
+
+```bash
+git clone -b devkit https://github.com/Majdoddin/firefox-devtools-mcp.git
+cd firefox-devtools-mcp
+npm install
+npm run build:moz
+```
+
+That writes `dist.moz/index.js`, the entry point that accepts privileged tools.
+Upstream's requirements apply (Node >= 20.19.0, a local Firefox); the kit is
+developed against Firefox Nightly 155, older releases are untested.
+
+## Use it with Claude Code
+
+Claude Code is the only client this has been used with. Other MCP clients
+should work, but are untested.
+
+Add to `.mcp.json` in your project, with an absolute path to the build:
+
+```json
+{
+  "mcpServers": {
+    "ffmcp": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "/absolute/path/to/firefox-devtools-mcp/dist.moz/index.js",
+        "--tool-preset", "mozilla",
+        "--firefox-arg=--remote-allow-system-access"
+      ],
+      "env": {
+        "MOZ_REMOTE_ALLOW_SYSTEM_ACCESS": "1"
+      }
+    }
+  }
+}
+```
+
+Two gates guard privileged access and both must be open — half-setting them is
+the usual reason the kit appears to be missing:
+
+- **Server side**: `MOZ_REMOTE_ALLOW_SYSTEM_ACCESS=1` in the environment, plus
+  `--tool-preset mozilla` so the privileged tools are registered at all.
+- **Firefox side**: `--remote-allow-system-access`, handed to the browser with
+  `--firefox-arg`.
+
+Add `--firefox-path` if your Firefox is not auto-detected, and `--headless` if
+you do not want a visible window.
+
+Then, in a session:
+
+1. `list_privileged_contexts` — take a context id.
+2. `ensure_privileged_kit` with that id. The kit installs onto the shared
+   system global, so it is reachable from every privileged context and
+   survives window closes.
+3. Drive the primitives through `evaluate_privileged_script`, reaching them
+   with `globalThis.__ffllm ??= Cu.getGlobalForObject(Services).__ffllm`.
+
+---
+
+*Everything below is upstream's README, describing the published public
+package.*
+
 # Firefox DevTools MCP
 
 [![npm version](https://badge.fury.io/js/@mozilla%2Ffirefox-devtools-mcp.svg)](https://www.npmjs.com/package/mozilla/firefox-devtools-mcp)
