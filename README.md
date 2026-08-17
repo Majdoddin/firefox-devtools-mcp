@@ -1,7 +1,7 @@
 # The `__ffllm` kit
 
 This fork adds a development kit to [Mozilla's Firefox DevTools MCP](https://github.com/mozilla/firefox-devtools-mcp): privileged JavaScript primitives that let an agent
-discover, introspect and hot-patch a **running** Firefox, chrome and content
+discover, introspect and hot-patch the internals of a **running** Firefox, chrome and content
 processes alike. No rebuild, no restart, no getting back to the bug.
 
 Showcased by agents fixing 7 Bugzilla bugs, each within ~45 minutes. Some bugs open since 2015, one of the patches has reached v.155 release notes!
