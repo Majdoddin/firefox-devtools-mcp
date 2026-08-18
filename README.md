@@ -29,7 +29,7 @@ any of them to the agent to study. `kit/recipe-rejection-observer.md` is a worke
   back to the parent.
 - `drain` — collect what the hooks and taps recorded.
 
-Submitted upstream as
+Submitted to Firefox as
 [bug 2062803](https://bugzilla.mozilla.org/show_bug.cgi?id=2062803). Until it
 lands, this fork is how you run it.
 
