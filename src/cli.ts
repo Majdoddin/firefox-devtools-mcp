@@ -130,8 +130,8 @@ export const cliOptions = {
     description:
       'Connect to an already-running Firefox instance via Marionette instead of launching a new one. ' +
       'Firefox must have Marionette and the Remote Agent listening: started with both --marionette and ' +
-      '--remote-debugging-port, or with remote control switched on at runtime ' +
-      '(experimental, pref remote.experimental.dynamicstart.enabled).',
+      "--remote-debugging-port, or with both switched on at runtime from Nightly's Remote Control " +
+      'panel (experimental, shown once the pref remote.experimental.dynamicstart.enabled is true).',
     default: (process.env.CONNECT_EXISTING ?? 'false') === 'true',
   },
   marionettePort: {
