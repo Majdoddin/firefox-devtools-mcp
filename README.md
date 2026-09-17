@@ -311,7 +311,7 @@ firefox --marionette --remote-debugging-port
 npx @mozilla/firefox-devtools-mcp --connect-existing --marionette-port 2828
 ```
 
-Both flags are required because the MCP uses both WebDriver Classic (`--marionette`) and WebDriver BiDi (`--remote-debugging-port`). If Firefox is only started with `--marionette`, the MCP server fails to connect and asks you to restart Firefox with both flags.
+Both flags are required because the MCP uses both WebDriver Classic (`--marionette`) and WebDriver BiDi (`--remote-debugging-port`). If Firefox is only started with `--marionette`, the MCP server fails to connect and asks you to restart Firefox with both flags. The flags are one way to get both listening: a Firefox where remote control was switched on at runtime (experimental, pref `remote.experimental.dynamicstart.enabled`) connects the same way.
 
 > **Warning:** Do not leave Marionette enabled during normal browsing. It sets
 > `navigator.webdriver = true` and changes other browser fingerprint signals,
